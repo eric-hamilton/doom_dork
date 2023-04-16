@@ -1,0 +1,17 @@
+# Compiled Python files
+*.pyc
+__pycache__/
+
+# Logs
+*.log
+
+# Build files
+build/
+dist/
+*.egg-info/
+
+# Virtual environment
+venv/
+
+# Tests
+test/
