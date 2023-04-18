@@ -9,9 +9,20 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+*.pyo
 
 # Virtual environment
 venv/
 
 # Tests
 test/
+
+# Config Files
+*.ini
+
+# Database
+*.db
+
+# Dev Crap
+devlog.txt
+notes.txt
