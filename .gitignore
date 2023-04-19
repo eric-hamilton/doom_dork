@@ -26,3 +26,10 @@ test/
 # Dev Crap
 devlog.txt
 notes.txt
+
+# Alembic stuff
+alembic/versions/*
+alembic/env.py
+alembic/README
+alembic/script.py.mako
+alembic.ini

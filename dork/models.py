@@ -1,5 +1,7 @@
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String, Boolean, Date
 from sqlalchemy.ext.declarative import declarative_base
+from dork.utils import convert_bytes
+import os
 
 Base = declarative_base()
 
@@ -12,10 +14,14 @@ class Engine(Base):
     __tablename__ = 'engines'
 
     id = Column(Integer, primary_key=True)
-    name = Column(String)
+    title = Column(String)
+    description = Column(String)
     executable = Column(String)
     folder_path = Column(String)
     version = Column(String)
+    local = Column(Boolean)
+    favorite = Column(Boolean, default=False)
+    
     
 class WAD(Base):
     __tablename__ = 'wads'
@@ -28,6 +34,7 @@ class WAD(Base):
     filename = Column(String)
     file_path = Column(String, unique=True)
     size = Column(String)
+    size_bytes = Column(Integer)
     credits = Column(String)
     base = Column(String)
     build_time = Column(String)
@@ -35,6 +42,21 @@ class WAD(Base):
     bugs = Column(String)
     rating = Column(String)
     rating_count = Column(String)
+    my_rating = Column(Integer)
+    favorite = Column(Boolean, default=False)
+    hidden = Column(Boolean, default=False)
+    last_played = Column(Date)
+    local = Column(Boolean)
+    
+    def init_from_local_filepath(self, file_path):
+        self.file_path = file_path
+        self.filename = os.path.basename(file_path)
+        self.title = self.filename
+        self.size_bytes = os.path.getsize(file_path)
+        self.size = convert_bytes(self.size_bytes)
+        self.local = True
+        
+        
 
 class WADFolder(Base):
     __tablename__ = "wadfolders"

@@ -45,6 +45,7 @@ def create_defaults(root_dir):
         'base_directory': root_dir,
         'engine_directory': engine_dir,
         'wad_directory': wad_dir,
+        'use_steam_directory':False,
     }
     config['CONFIG'] = default_config
     with open(config_file, 'w') as f:
