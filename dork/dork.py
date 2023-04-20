@@ -11,6 +11,15 @@ class DoomDork:
     def __init__(self, app):
         self.app = app
 
+    def update_local_engine(self, engine_dict):
+        engine = self.app.db.query(Engine).get(engine_dict["engine_id"])
+        engine.title = engine_dict["title"]
+        engine.description = engine_dict["description"]
+        engine.local = True
+        engine.version = engine_dict["version"]
+        self.app.db.commit()
+        self.app.ui.handle_signal("engine_commit")
+
     def add_local_engine(self, engine_dict):
         new_engine = Engine()
         engine_path = engine_dict["engine_path"]
@@ -24,6 +33,7 @@ class DoomDork:
         self.app.db.commit()
         self.app.ui.handle_signal("engine_commit")
         
+
         
     def get_local_engines(self):
         engines = self.app.db.query(Engine).filter(Engine.local == True)
@@ -60,6 +70,10 @@ class DoomDork:
     def get_all_engines(self):
         all_engines = self.app.db.query(Engine).all()
         return all_engines
+    
+    def get_engine(self, engine_id):
+        engine = self.app.db.query(Engine).get(engine_id)
+        return engine
         
     def get_steam_wads(self):
         steam_dir = dork_utils.get_steam_directory()

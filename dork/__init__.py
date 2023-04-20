@@ -13,7 +13,6 @@ db = Session()
 
 Base.metadata.create_all(db_engine)
 
-
 class App:
     
     def __init__(self):

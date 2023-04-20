@@ -3,11 +3,11 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QLabel, QGridLayout,
                         QSplitter, QSizePolicy, QPushButton, QAction, QDialog,
                         QStyleFactory, QHBoxLayout, QScrollBar, QComboBox,
                         QDialogButtonBox, QStackedWidget, QCheckBox, QFileDialog,
-                        QLineEdit, QMessageBox)
+                        QLineEdit, QMessageBox, QMenu)
 from PyQt5.QtCore import Qt, QSize, QUrl, QRect
 from PyQt5.QtGui import QPixmap, QIcon, QDesktopServices, QPalette, QColor
 
-from dork.ui.custom import DividerWidgetItem, AddWadsItemWidget
+from dork.ui.custom import DividerWidgetItem, AddItemWidget
 import os
 import qdarkstyle
 
@@ -15,6 +15,7 @@ import qdarkstyle
 class UI:
     def __init__(self, app):
         self.app = app
+        self.dork = app.dork
         self.q_app = QApplication([])
         self.main_window = MainWindow(self)
 
@@ -58,6 +59,7 @@ class UI:
         if signal == "engine_commit":
             if self.main_window.engine_window:
                 self.main_window.engine_window.load_engines()
+            self.main_window.load_engines()
                 
         if signal == "wad_commit":
             if self.main_window.wad_window:
@@ -71,7 +73,7 @@ class EngineWindow(QDialog):
         self.setWindowTitle("Engine Manager")
 
         #self.setGeometry(400, 400, 200, 200)
-        self.setGeometry(parent.geometry().x() + 50, parent.geometry().y() + 50, 200, 200)
+        self.setGeometry(parent.geometry().x() + 50, parent.geometry().y() + 50, 400, 400)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
         
         browse_button= QPushButton("Browse Online Engines")
@@ -115,7 +117,7 @@ class NewEngineWindow(QDialog):
     def __init__(self, engine_path, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Add Engine")
-        self.setGeometry(parent.geometry().x() + 50, parent.geometry().y() + 50, 200, 200)
+        self.setGeometry(parent.geometry().x() + 50, parent.geometry().y() + 50, 400, 400)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
         
         self.engine_path = engine_path
@@ -151,14 +153,53 @@ class NewEngineWindow(QDialog):
         
         self.setLayout(layout)
     
-    
+class EditEngineWindow(QDialog):  
+    def __init__(self, engine_id, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Engine")
+        self.setGeometry(parent.geometry().x() + 50, parent.geometry().y() + 50, 400, 400)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        
+        engine = self.parent().ui.app.dork.get_engine(engine_id)
+        new_engine_label = QLabel(f'Add Engine Details for {engine.title}')
+        
+        title_label = QLabel('Title')
+        self.title_input = QLineEdit()
+        self.title_input.setText(engine.title)
+        
+        description_label = QLabel('Description')
+        self.description_input = QLineEdit()
+        self.description_input.setText(engine.description)
+        
+        version_label = QLabel('Version')
+        self.version_input = QLineEdit()
+        self.version_input.setText(engine.version)
+        
+        cancel_button = QPushButton('Cancel')
+        cancel_button.clicked.connect(self.close)
+        save_button = QPushButton('Save')
+        save_button.clicked.connect(lambda: parent.update_engine(self, engine_id))
+        
+        
+        layout = QGridLayout()
+        
+        layout.addWidget(new_engine_label, 0, 0, 1, 2)
+        layout.addWidget(title_label, 1, 0)
+        layout.addWidget(self.title_input, 1, 1)
+        layout.addWidget(description_label, 2, 0)
+        layout.addWidget(self.description_input, 2, 1)
+        layout.addWidget(version_label, 3, 0)
+        layout.addWidget(self.version_input, 3, 1)
+        layout.addWidget(cancel_button, 4, 0)
+        layout.addWidget(save_button, 4, 1)
+        
+        self.setLayout(layout)
     
 class WadWindow(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Wad Manager")
-        #self.setGeometry(400, 400, 200, 200)
-        self.setGeometry(parent.geometry().x() + 50, parent.geometry().y() + 50, 200, 200)
+        self.setGeometry(parent.geometry().x() + 50, parent.geometry().y() + 50, 400, 400)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
         
         browse_button= QPushButton("Browse Online Wads")
@@ -187,6 +228,7 @@ class WadWindow(QDialog):
         layout.addWidget(use_steam_checkbox,4,1, alignment=Qt.AlignRight)
         layout.addWidget(close_button, 5, 0, 1, 2)
         self.setLayout(layout)
+        self.load_wads()
         
     def load_wads(self):
         self.local_wad_listbox.clear()
@@ -199,16 +241,9 @@ class MainWindow(QMainWindow):
     def __init__(self, ui):
         self.ui = ui
         self.last_local_folder=None
-        self.engine_index = {
-            0: "DSDADoom",
-            1: "GZDoom",
-            2:"Chocolate Doom",
-            3:"Brutal Doom",
-        }
         self.wad_index = {}
         self.engine_window = None
         self.wad_window = None
-        self.engine_names = list(self.engine_index.values())
         super().__init__()
         self.setStyleSheet(qdarkstyle.load_stylesheet())
 
@@ -224,19 +259,36 @@ class MainWindow(QMainWindow):
         self.wad_scrollbar = QScrollBar(Qt.Vertical, self.wad_listbox)
         self.wad_listbox.setVerticalScrollBar(self.wad_scrollbar)
         
-        add_wad_item = AddWadsItemWidget(self.wad_listbox)
+        add_wad_item = AddItemWidget("Add Wads", self.wad_listbox)
         add_item = QListWidgetItem(self.wad_listbox)
         add_item.setSizeHint(add_wad_item.sizeHint())
         self.wad_listbox.setItemWidget(add_item, add_wad_item)
-        add_wad_item.add_wads.connect(self.on_add_wads_item_clicked)
+        add_wad_item.add_item.connect(self.on_add_wads_item_clicked)
         
+        self.engine_label = QLabel("Engines", self)
+        self.engine_listbox = QListWidget(self)
+        self.engine_listbox.setFixedSize(200, 300)
+        self.engine_scrollbar = QScrollBar(Qt.Vertical, self.engine_listbox)
+        self.engine_listbox.setVerticalScrollBar(self.engine_scrollbar)
         
+        add_engine_item = AddItemWidget("Add Engines", self.engine_listbox)
+        add_item = QListWidgetItem(self.engine_listbox)
+        add_item.setSizeHint(add_engine_item.sizeHint())
+        self.engine_listbox.setItemWidget(add_item, add_engine_item)
+        add_engine_item.add_item.connect(self.on_add_engines_item_clicked)
+        
+        self.engine_context_menu = QMenu()
+        edit_engine_action = QAction("Edit Engine", self)
+        edit_engine_action.triggered.connect(self.open_edit_engine_window)
+        self.engine_context_menu.addAction(edit_engine_action)
+        
+        open_engine_folder_action = QAction("Open Folder", self)
+        open_engine_folder_action.triggered.connect(self.open_engine_folder)
+        
+        self.engine_context_menu.addAction(open_engine_folder_action)
+        self.engine_listbox.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.engine_listbox.customContextMenuRequested.connect(self.show_engine_context_menu)
 
-        self.engine_label = QLabel("Engine", self)
-        self.engine_var = QComboBox(self)
-        self.engine_var.addItems(self.engine_names)
-
-        self.search_button = QPushButton("Refresh Wads", self)
 
         self.run_button = QPushButton("Launch", self)
         
@@ -245,12 +297,12 @@ class MainWindow(QMainWindow):
         # Use the grid layout manager to arrange the widgets
         layout = QGridLayout()
         layout.addWidget(self.wad_label, 0, 1)
-        layout.addWidget(self.search_button, 0, 2)
-        layout.addWidget(self.wad_listbox, 1, 1, 2, 2)
-        layout.addWidget(self.engine_label, 3, 2)
-        layout.addWidget(self.engine_var, 3, 3)
+        layout.addWidget(self.wad_listbox, 1, 0, 2, 2)
+        layout.addWidget(self.engine_listbox, 1, 2, 2, 2)
+        layout.addWidget(self.engine_label, 0, 2)
+        #layout.addWidget(self.engine_var, 3, 3)
         
-        layout.addWidget(self.run_button, 3, 4)
+        layout.addWidget(self.run_button, 3, 1, 2, 3)
 
         # Add empty columns to the left and right of the listbox and scrollbar
         layout.setColumnMinimumWidth(0, 10)
@@ -264,6 +316,7 @@ class MainWindow(QMainWindow):
 
         self.wads = {}
         self.load_wads()
+        self.load_engines()
 
         # Configure the grid to expand the file listbox vertically and horizontally
         layout.setRowStretch(0, 1)
@@ -274,7 +327,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
     
     def launch_wad(self):
-        selected_engine_index = self.engine_var.currentIndex()
+        selected_engine_index = self.engine_listbox.currentRow()
         selected_wad_index = self.wad_listbox.currentRow()
         if selected_engine_index >=0:
             if selected_wad_index >=0:
@@ -297,12 +350,40 @@ class MainWindow(QMainWindow):
         divider_item = DividerWidgetItem()
         self.wad_listbox.addItem(divider_item)
         
-        add_wad_item = AddWadsItemWidget(self.wad_listbox)
+        add_wad_item = AddItemWidget("Add Wads", self.wad_listbox)
         add_item = QListWidgetItem(self.wad_listbox)
         add_item.setSizeHint(add_wad_item.sizeHint())
         self.wad_listbox.setItemWidget(add_item, add_wad_item)
-        add_wad_item.add_wads.connect(self.on_add_wads_item_clicked)
+        add_wad_item.add_item.connect(self.on_add_wads_item_clicked)
     
+    def load_engines(self):
+        self.engine_listbox.clear()
+        self.engine_index = {}
+        engine_list = self.ui.app.dork.get_all_engines()
+
+        for x in range(len(engine_list)):
+            engine = engine_list[x]
+            self.engine_index[x]= engine.id
+            engine_item = QListWidgetItem(engine.title)
+            self.engine_listbox.addItem(engine_item) 
+            
+        divider_item = DividerWidgetItem()
+        self.engine_listbox.addItem(divider_item)
+        
+        add_engine_item = AddItemWidget("Add Engine", self.engine_listbox)
+        add_item = QListWidgetItem(self.engine_listbox)
+        add_item.setSizeHint(add_engine_item.sizeHint())
+        self.engine_listbox.setItemWidget(add_item, add_engine_item)
+        add_engine_item.add_item.connect(self.on_add_engines_item_clicked)
+        
+    def show_engine_context_menu(self, pos):
+        selected_engine_index = self.engine_listbox.currentRow()
+        if selected_engine_index == self.engine_listbox.count()-1:
+            return
+        if selected_engine_index >=0:
+            global_pos = self.engine_listbox.mapToGlobal(pos)
+            self.engine_context_menu.exec(global_pos)
+            
     def add_wad_folder(self):
         # Default folder is used for the first time, then the last folder selected
         default_path = self.last_local_folder or "."
@@ -334,7 +415,10 @@ class MainWindow(QMainWindow):
                 self.ui.app.dork.add_local_wads_from_folder(folder_path, True, recursive)
             else:
                 self.ui.app.dork.add_local_wad(file_path[0])
-
+    
+    def on_add_engines_item_clicked(self):
+        self.open_engine_window()
+        
     def on_add_wads_item_clicked(self):
         self.open_wad_window()
     
@@ -349,6 +433,19 @@ class MainWindow(QMainWindow):
     def open_new_engine_window(self, engine_path):
         new_engine_window = NewEngineWindow(engine_path, self)
         new_engine_window.exec_()
+    
+    def open_edit_engine_window(self):
+        selected_engine_index = self.engine_listbox.currentRow()      
+        engine_id = self.engine_index[selected_engine_index]
+        edit_engine_window = EditEngineWindow(engine_id, self)
+        edit_engine_window.exec_()
+        
+    def open_engine_folder(self):
+        selected_engine_index = self.engine_listbox.currentRow()      
+        engine_id = self.engine_index[selected_engine_index]
+        engine = self.ui.app.dork.get_engine(engine_id)
+        url = QUrl.fromLocalFile(engine.folder_path)
+        QDesktopServices.openUrl(url)
         
     def add_engine(self):
         default_path = self.last_local_folder or "."
@@ -376,6 +473,20 @@ class MainWindow(QMainWindow):
             "version":version,
         }
         self.ui.app.dork.add_local_engine(details)
+    
+    def update_engine(self, edit_engine_window, engine_id):
+        title = edit_engine_window.title_input.text()
+        description = edit_engine_window.description_input.text()
+        version = edit_engine_window.version_input.text()
+        edit_engine_window.close()
+        
+        details = {
+            "engine_id":engine_id,
+            "title":title,
+            "description":description,
+            "version":version,
+        }
+        self.ui.app.dork.update_local_engine(details)
         
     def create_menu_bar(self):
         menubar = self.menuBar()
@@ -383,6 +494,8 @@ class MainWindow(QMainWindow):
         # File
         file_menu = menubar.addMenu('File')
         
+        refresh_action = QAction("Refresh", self)
+        file_menu.addAction(refresh_action)
         prefs_action = QAction('Preferences', self)
         file_menu.addAction(prefs_action)
 
@@ -395,12 +508,28 @@ class MainWindow(QMainWindow):
         manage_engines_action = QAction("Manage Engines", self)
         manage_engines_action.triggered.connect(self.open_engine_window)
         engine_menu.addAction(manage_engines_action)
+        
+        engine_menu.addSeparator()
+        
+        refresh_engines_action = QAction("Refresh Engines", self)
+        refresh_engines_action.triggered.connect(self.load_engines)
+        engine_menu.addAction(refresh_engines_action)
+        
+
 
         # Wads
         wads_menu = menubar.addMenu('Wads')
         manage_wads_action = QAction("Manage Wads", self)
         manage_wads_action.triggered.connect(self.open_wad_window)
         wads_menu.addAction(manage_wads_action)
+        
+        wads_menu.addSeparator()
+        
+        refresh_wads_action = QAction("Refresh Wads", self)
+        refresh_wads_action.triggered.connect(self.load_wads)
+        wads_menu.addAction(refresh_wads_action)
+        
+
         
 
         # Help

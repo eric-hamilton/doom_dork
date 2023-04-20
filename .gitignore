@@ -19,6 +19,7 @@ test/
 
 # Config Files
 *.ini
+*.cfg
 
 # Database
 *.db
