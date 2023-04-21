@@ -7,9 +7,11 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QLabel, QGridLayout,
 from PyQt5.QtCore import Qt, QSize, QUrl, QRect
 from PyQt5.QtGui import QPixmap, QIcon, QDesktopServices, QPalette, QColor
 
-from dork.ui.custom import DividerWidgetItem, AddItemWidget
+from dork.ui.custom import DividerWidgetItem, AddItemWidget, NoValidIWadMessage, FileBrowseEdit
+from dork.config import warnings
 import os
 import qdarkstyle
+
 
      
 class UI:
@@ -18,6 +20,7 @@ class UI:
         self.dork = app.dork
         self.q_app = QApplication([])
         self.main_window = MainWindow(self)
+        
 
     def show_about_dialog(self):
 
@@ -53,6 +56,16 @@ class UI:
         
     def launch(self):
         self.main_window.show()
+        
+        for warning in warnings:
+            if warning == "no_valid_iwads":
+                msg_box = NoValidIWadMessage()
+                response = msg_box.exec_()
+                if response == QMessageBox.Close:
+                    pass
+                else:
+                    self.main_window.open_iwad_window()
+        
         self.q_app.exec_()
         
     def handle_signal(self, signal):
@@ -65,8 +78,93 @@ class UI:
             if self.main_window.wad_window:
                 self.main_window.wad_window.load_wads()
             
+    def show_message(self, message, title, yes_signal, no_signal):
+        msg_box = QMessageBox()
+        msg_box.setStyleSheet(qdarkstyle.load_stylesheet())
+        msg_box.setText(message)
+        msg_box.setWindowTitle(title)
+        msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg_box.setDefaultButton(QMessageBox.No)
+        response = msg_box.exec_()
+        if response == QMessageBox.Yes:
+            self.handle_signal(yes_signal)
+        else:
+            self.handle_signal(no_signal)
+
+class IWadWindow(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parser = parent.ui.app.config.parser
+        self.setWindowTitle("IWADs")
+        self.setGeometry(parent.geometry().x() + 50, parent.geometry().y() + 50, 400, 400)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        iwad_label = QLabel("IWADs (Internal WADs) are not included with the game and are required to play mods. These files cannot be distributed due to copyright restrictions. Please make sure to provide your own IWAD files.")
+        iwad_label.setWordWrap(True)
+        iwad_label.setFixedHeight(60)
+
+        
+        
+        doom_label = QLabel("DOOM.WAD")
+        doom_path = parent.ui.app.dork.get_verified_iwad_path("doom")
+        doom_path_edit = FileBrowseEdit(self.parser, doom_path, self)
+        doom_path_edit.path_selected.connect(lambda path: self.iwad_path_selected(path, "doom"))
+        
+        doom_2_label = QLabel("DOOM2.WAD")
+        doom_2_path = parent.ui.app.dork.get_verified_iwad_path("doom2")
+        doom_2_path_edit = FileBrowseEdit(self.parser, doom_2_path, self)
+        doom_2_path_edit.path_selected.connect(lambda path: self.iwad_path_selected(path, "doom2"))
+        
+        hexen_label = QLabel("HEXEN.WAD")
+        hexen_path = parent.ui.app.dork.get_verified_iwad_path("hexen")
+        hexen_path_edit = FileBrowseEdit(self.parser, hexen_path, self)
+        hexen_path_edit.path_selected.connect(lambda path: self.iwad_path_selected(path, "hexen"))
+        
+        heretic_label = QLabel("HERETIC.WAD")
+        heretic_path = parent.ui.app.dork.get_verified_iwad_path("heretic")
+        heretic_path_edit = FileBrowseEdit(self.parser,heretic_path, self)
+        heretic_path_edit.path_selected.connect(lambda path: self.iwad_path_selected(path, "heretic"))
+        
+        strife_label = QLabel("STRIFE1.WAD")
+        strife_path = parent.ui.app.dork.get_verified_iwad_path("strife")
+        strife_path_edit = FileBrowseEdit(self.parser, strife_path, self)
+        strife_path_edit.path_selected.connect(lambda path: self.iwad_path_selected(path, "strife"))
+        
+        strife_voices_label = QLabel("VOICES.WAD (for Strife)")
+        strife_voices_path = parent.ui.app.dork.get_verified_iwad_path("strife_voices")
+        strife_voices_path_edit = FileBrowseEdit(self.parser,strife_voices_path,  self)
+        strife_voices_path_edit.path_selected.connect(lambda path: self.iwad_path_selected(path, "strife_voices"))
+        
+        finish_button= QPushButton("Finished")
+        finish_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        finish_button.setFixedHeight(40) 
+        finish_button.setFixedWidth(300)
+        finish_button.clicked.connect(self.close)
+        
+        layout = QGridLayout()
+        
+        layout.addWidget(iwad_label, 0, 0, 2, 2)
+        layout.addWidget(doom_label, 2, 0)
+        layout.addWidget(doom_path_edit, 2, 1)
+        layout.addWidget(doom_2_label, 3, 0)
+        layout.addWidget(doom_2_path_edit, 3, 1)
+        layout.addWidget(hexen_label, 4, 0)
+        layout.addWidget(hexen_path_edit, 4, 1)
+        layout.addWidget(heretic_label, 5, 0)
+        layout.addWidget(heretic_path_edit, 5, 1)
+        layout.addWidget(strife_label, 6, 0)
+        layout.addWidget(strife_path_edit, 6, 1)
+        layout.addWidget(strife_voices_label, 7, 0)
+        layout.addWidget(strife_voices_path_edit, 7, 1)
+        layout.addWidget(finish_button, 8, 0, 2, 2, alignment=Qt.AlignCenter)
 
 
+        self.setLayout(layout)
+    
+    def iwad_path_selected(self, file_path, iwad):
+        self.parser.set("IWADS",iwad,file_path)
+        folder = os.path.dirname(file_path)
+        self.parser.set("DATA","last_directory",folder)
+        
 class EngineWindow(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -240,7 +338,7 @@ class WadWindow(QDialog):
 class MainWindow(QMainWindow):
     def __init__(self, ui):
         self.ui = ui
-        self.last_local_folder=None
+        self.last_local_folder=ui.app.config.parser.get("DATA", "last_directory")
         self.wad_index = {}
         self.engine_window = None
         self.wad_window = None
@@ -265,6 +363,20 @@ class MainWindow(QMainWindow):
         self.wad_listbox.setItemWidget(add_item, add_wad_item)
         add_wad_item.add_item.connect(self.on_add_wads_item_clicked)
         
+        
+        self.wad_context_menu = QMenu()
+        edit_wad_action = QAction("Edit WAD", self)
+        edit_wad_action.triggered.connect(self.open_edit_engine_window)
+        self.wad_context_menu.addAction(edit_wad_action)
+        
+        open_wad_folder_action = QAction("Open Folder", self)
+        open_wad_folder_action.triggered.connect(self.open_wad_folder)
+        
+        self.wad_context_menu.addAction(open_wad_folder_action)
+        self.wad_listbox.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.wad_listbox.customContextMenuRequested.connect(self.show_wad_context_menu)
+        
+        
         self.engine_label = QLabel("Engines", self)
         self.engine_listbox = QListWidget(self)
         self.engine_listbox.setFixedSize(200, 300)
@@ -288,9 +400,17 @@ class MainWindow(QMainWindow):
         self.engine_context_menu.addAction(open_engine_folder_action)
         self.engine_listbox.setContextMenuPolicy(Qt.CustomContextMenu)
         self.engine_listbox.customContextMenuRequested.connect(self.show_engine_context_menu)
+        
+        self.iwad_label = QLabel("IWAD", self)
+        self.iwad_var = QComboBox(self)
+        iwads = self.ui.app.dork.get_iwads()
+        self.iwad_var.addItems(iwads)
 
 
         self.run_button = QPushButton("Launch", self)
+        self.run_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.run_button.setFixedHeight(40) 
+        #self.run_button.setFixedWidth(300)
         
         self.run_button.clicked.connect(self.launch_wad)
         
@@ -300,9 +420,10 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.wad_listbox, 1, 0, 2, 2)
         layout.addWidget(self.engine_listbox, 1, 2, 2, 2)
         layout.addWidget(self.engine_label, 0, 2)
-        #layout.addWidget(self.engine_var, 3, 3)
         
-        layout.addWidget(self.run_button, 3, 1, 2, 3)
+        layout.addWidget(self.iwad_label, 3, 0)
+        layout.addWidget(self.iwad_var, 3, 1)
+        layout.addWidget(self.run_button, 3, 2)
 
         # Add empty columns to the left and right of the listbox and scrollbar
         layout.setColumnMinimumWidth(0, 10)
@@ -329,11 +450,12 @@ class MainWindow(QMainWindow):
     def launch_wad(self):
         selected_engine_index = self.engine_listbox.currentRow()
         selected_wad_index = self.wad_listbox.currentRow()
+        selected_iwad = self.iwad_var.currentText()
         if selected_engine_index >=0:
             if selected_wad_index >=0:
                 engine_id = self.engine_index[selected_engine_index]
                 wad_id = self.wad_index[selected_wad_index]
-                self.ui.app.dork.run_selected(engine_id, wad_id)
+                self.ui.app.dork.run_selected(engine_id, wad_id, selected_iwad)
         
         
     def load_wads(self):
@@ -383,14 +505,22 @@ class MainWindow(QMainWindow):
         if selected_engine_index >=0:
             global_pos = self.engine_listbox.mapToGlobal(pos)
             self.engine_context_menu.exec(global_pos)
-            
+    
+    def show_wad_context_menu(self, pos):
+        selected_wad_index = self.wad_listbox.currentRow()
+        if selected_wad_index == self.wad_listbox.count()-1:
+            return
+        if selected_wad_index >=0:
+            global_pos = self.wad_listbox.mapToGlobal(pos)
+            self.wad_context_menu.exec(global_pos)
+        
     def add_wad_folder(self):
         # Default folder is used for the first time, then the last folder selected
-        default_path = self.last_local_folder or "."
-        file_path = QFileDialog.getOpenFileName(self, 'Select Folder', default_path, "WAD File (*.wad)")
-        if file_path[0]:
-            folder_path = os.path.dirname(file_path[0])
+        file_path, _ = QFileDialog.getOpenFileName(self, 'Select Folder', self.last_local_folder, "WAD File (*.wad)")
+        if file_path:
+            folder_path = os.path.dirname(file_path)
             self.last_local_folder = folder_path
+            self.ui.app.config.parser.set("DATA", "last_directory", folder_path)
             folder_name = os.path.basename(os.path.normpath(folder_path))
             
             msg_box = QMessageBox()
@@ -414,7 +544,7 @@ class MainWindow(QMainWindow):
                     recursive = False
                 self.ui.app.dork.add_local_wads_from_folder(folder_path, True, recursive)
             else:
-                self.ui.app.dork.add_local_wad(file_path[0])
+                self.ui.app.dork.add_local_wad(file_path)
     
     def on_add_engines_item_clicked(self):
         self.open_engine_window()
@@ -434,11 +564,23 @@ class MainWindow(QMainWindow):
         new_engine_window = NewEngineWindow(engine_path, self)
         new_engine_window.exec_()
     
+    def open_iwad_window(self):
+        iwad_window = IWadWindow(self)
+        iwad_window.exec_()
+        
     def open_edit_engine_window(self):
         selected_engine_index = self.engine_listbox.currentRow()      
         engine_id = self.engine_index[selected_engine_index]
         edit_engine_window = EditEngineWindow(engine_id, self)
         edit_engine_window.exec_()
+    
+    def open_wad_folder(self):
+        selected_wad_index = self.wad_listbox.currentRow()      
+        wad_id = self.wad_index[selected_wad_index]
+        wad = self.ui.app.dork.get_wad(wad_id)
+        folder_path = os.path.dirname(wad.file_path)
+        url = QUrl.fromLocalFile(folder_path)
+        QDesktopServices.openUrl(url)
         
     def open_engine_folder(self):
         selected_engine_index = self.engine_listbox.currentRow()      
@@ -449,16 +591,14 @@ class MainWindow(QMainWindow):
         
     def add_engine(self):
         default_path = self.last_local_folder or "."
-        file_path = QFileDialog.getOpenFileName(self, 'Select Engine', default_path, "Executable File (*.exe)")
+        file_path, _ = QFileDialog.getOpenFileName(self, 'Select Engine', default_path, "Executable File (*.exe)")
         
         if file_path:
-            if file_path[0]:
-                # GetOpenFileName returns a tuple
-                print(file_path)
-                folder_path = os.path.dirname(file_path[0])
-                self.last_local_folder = folder_path
-                self.open_new_engine_window(file_path[0])
-    
+
+            folder_path = os.path.dirname(file_path)
+            self.last_local_folder = folder_path
+            self.open_new_engine_window(file_path)
+
     def save_engine(self, new_engine_window):
         engine_path = new_engine_window.engine_path
         title = new_engine_window.title_input.text()
@@ -523,6 +663,10 @@ class MainWindow(QMainWindow):
         manage_wads_action.triggered.connect(self.open_wad_window)
         wads_menu.addAction(manage_wads_action)
         
+        iwads_action = QAction("Manage IWADS", self)
+        iwads_action.triggered.connect(self.open_iwad_window)
+        wads_menu.addAction(iwads_action)
+        
         wads_menu.addSeparator()
         
         refresh_wads_action = QAction("Refresh Wads", self)
@@ -544,3 +688,6 @@ class MainWindow(QMainWindow):
         about_action = QAction('About', self)
         about_action.triggered.connect(self.ui.show_about_dialog)
         help_menu.addAction(about_action)
+        
+class Nothing:
+    pass

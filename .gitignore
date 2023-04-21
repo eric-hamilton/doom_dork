@@ -23,6 +23,7 @@ test/
 
 # Database
 *.db
+migrate.py
 
 # Dev Crap
 devlog.txt

@@ -47,6 +47,7 @@ class WAD(Base):
     hidden = Column(Boolean, default=False)
     last_played = Column(Date)
     local = Column(Boolean)
+    is_iwad = Column(Boolean, default=False)
     
     def init_from_local_filepath(self, file_path):
         self.file_path = file_path

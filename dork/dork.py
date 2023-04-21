@@ -1,16 +1,20 @@
 import struct
 import omg
 import os
+import shutil
 import subprocess
+import concurrent.futures
+import time
+
 import dork.web as web_utils
 import dork.utils as dork_utils
 from dork.models import Engine, WAD, WADFolder
+
 
 class DoomDork:
 
     def __init__(self, app):
         self.app = app
-
     def update_local_engine(self, engine_dict):
         engine = self.app.db.query(Engine).get(engine_dict["engine_id"])
         engine.title = engine_dict["title"]
@@ -57,7 +61,14 @@ class DoomDork:
         self.app.db.commit()
         self.app.ui.handle_signal("wad_commit")
         
-        
+    
+    def get_verified_iwad_path(self, iwad):
+        iwad_path = self.app.config.parser.get("IWADS", iwad)
+        if os.path.exists(iwad_path):
+            return iwad_path
+        else:
+            return None
+            
     def add_local_wad(self, wad_path):
         new_wad = WAD()
         new_wad.init_from_local_filepath(wad_path)
@@ -74,6 +85,10 @@ class DoomDork:
     def get_engine(self, engine_id):
         engine = self.app.db.query(Engine).get(engine_id)
         return engine
+    
+    def get_wad(self, wad_id):
+        wad = self.app.db.query(WAD).get(wad_id)
+        return wad
         
     def get_steam_wads(self):
         steam_dir = dork_utils.get_steam_directory()
@@ -83,8 +98,14 @@ class DoomDork:
         for wad in found_wads:
             wad_class = WAD()
         
-        
-        
+    def get_iwads(self):
+        iwad_list = []
+        for iwad, path in self.app.config.parser.items("IWADS"):
+            if os.path.exists(path):
+                iwad_list.append(iwad)
+        return iwad_list
+            
+
     def get_wads_in_folder(self, folder_path):
 
         wad_list = []
@@ -102,13 +123,31 @@ class DoomDork:
         for x in wad.structure:
             print(x)
     
-    def run_selected(self, engine_id, wad_id):
+    def on_subprocess_finished(self):
+        print("DONE")
+    
+    def run_subprocess(self, engine_path, wad_path):
+        subprocess.run([engine_path, wad_path])    
+        
+    def run_selected(self, engine_id, wad_id, iwad):
         engine_object = self.app.db.query(Engine).get(engine_id)
         engine_path = os.path.join(engine_object.folder_path, engine_object.executable)
         
         wad_object = self.app.db.query(WAD).get(wad_id)
         wad_path = wad_object.file_path
-        
-        subprocess.run([engine_path, wad_path])
-    
+        iwad_path = self.get_verified_iwad_path(iwad)
 
+        iwad_dest = os.path.join(engine_object.folder_path, os.path.basename(iwad_path))
+        #wad_dest = os.path.join(, os.path.basename(wad_path))
+        #open(iwad_dest, 'w').close()
+        
+        shutil.copyfile(iwad_path, iwad_dest)
+        #shutil.copyfile(wad_path, wad_dest)
+        
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(self.run_subprocess, engine_path, wad_path)
+            while not future.done():
+                time.sleep(1)
+            result = future.result()
+            self.on_subprocess_finished()
+            

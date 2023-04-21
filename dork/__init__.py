@@ -1,3 +1,5 @@
+import threading
+
 from dork import config
 from dork.ui import UI
 from dork.dork import DoomDork
@@ -17,14 +19,13 @@ class App:
     
     def __init__(self):
         self.db = db
-        self.config = config.Config()
+        self.config = config.Config(self)
         self.dork = DoomDork(self)
         self.ui = UI(self)
         
-        
     def run(self):
         self.ui.launch()
-        
+    
 
 def create_app():
     app = App()
