@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import concurrent.futures
 import time
+import json
 
 import dork.web as web_utils
 import dork.utils as dork_utils
@@ -15,6 +16,8 @@ class DoomDork:
 
     def __init__(self, app):
         self.app = app
+        self.injected_iwad = None
+        
     def update_local_engine(self, engine_dict):
         engine = self.app.db.query(Engine).get(engine_dict["engine_id"])
         engine.title = engine_dict["title"]
@@ -97,6 +100,17 @@ class DoomDork:
         return
         for wad in found_wads:
             wad_class = WAD()
+    
+    def check_iwad(self, wad_path):
+        wad_header = dork_utils.get_wad_header(wad_path)
+        checksum = dork_utils.compute_checksum(wad_path)
+        with open('dork/resources/iwad_hashes.json') as f:
+            iwad_data = json.load(f)
+        for iwad in iwad_data:
+            if checksum == iwad["wad_md5"]:
+                return True
+        return False
+        
         
     def get_iwads(self):
         iwad_list = []
@@ -124,11 +138,14 @@ class DoomDork:
             print(x)
     
     def on_subprocess_finished(self):
-        print("DONE")
+        if self.injected_iwad:
+            os.remove(self.injected_iwad)
+            self.injected_iwad = None
+        
     
     def run_subprocess(self, engine_path, wad_path):
         subprocess.run([engine_path, wad_path])    
-        
+    
     def run_selected(self, engine_id, wad_id, iwad):
         engine_object = self.app.db.query(Engine).get(engine_id)
         engine_path = os.path.join(engine_object.folder_path, engine_object.executable)
@@ -138,11 +155,14 @@ class DoomDork:
         iwad_path = self.get_verified_iwad_path(iwad)
 
         iwad_dest = os.path.join(engine_object.folder_path, os.path.basename(iwad_path))
-        #wad_dest = os.path.join(, os.path.basename(wad_path))
-        #open(iwad_dest, 'w').close()
-        
+
         shutil.copyfile(iwad_path, iwad_dest)
-        #shutil.copyfile(wad_path, wad_dest)
+
+        self.injected_iwad = iwad_dest
+        
+        self.app.config.parser.set("DATA", "last_wad", str(wad_id))
+        self.app.config.parser.set("DATA", "last_engine", str(engine_id))
+        self.app.config.parser.set("DATA", "last_iwad", str(iwad))
         
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future = executor.submit(self.run_subprocess, engine_path, wad_path)

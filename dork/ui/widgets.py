@@ -1,7 +1,9 @@
 from PyQt5.QtWidgets import (QLabel, QListWidgetItem, QWidget,  QPushButton,
-                            QHBoxLayout, QMessageBox, QLineEdit, QFileDialog)
+                            QHBoxLayout, QMessageBox, QLineEdit, QFileDialog,
+                            QSpacerItem, QSizePolicy)
+from PyQt5.QtSvg import QSvgRenderer                            
 from PyQt5.QtCore import Qt, QSize, pyqtSignal
-from PyQt5.QtGui import QColor, QPalette
+from PyQt5.QtGui import QColor, QPalette, QPixmap, QIcon, QFont
 import qdarkstyle
 
 class AddItemWidget(QWidget):
@@ -43,6 +45,58 @@ class AddItemWidget(QWidget):
     def on_add_item_clicked(self):
         self.add_item.emit()
 
+class WadListItem(QWidget):
+
+    def __init__(self, wad, config):
+        super().__init__()
+        self.config = config
+        self.wad = wad
+        is_local_path = config.get_dork_path("resources/icons/user.svg")
+        is_wad_path = config.get_dork_path("resources/icons/check.svg")
+        is_fav_path = config.get_dork_path("resources/icons/star.svg")
+        self.icon_index = {
+            "local": {
+                "tooltip": "Local Wad",
+                "icon_path": is_local_path
+            },
+            "is_iwad": {
+                "tooltip": "IWAD",
+                "icon_path": is_wad_path
+            },
+            "favorite": {
+                "tooltip": "Favorite Wad",
+                "icon_path": is_fav_path
+            },
+        }
+        
+        self.wad_label = QLabel(wad.title, self)
+        font = QFont("Garamond", 10)
+        self.wad_label.setFont(font)
+        
+        widget_list = []
+        for attr, details in self.icon_index.items():
+            if getattr(self.wad, attr):
+                label = QLabel(self)
+                label.setToolTip(details["tooltip"])
+                icon_pixmap = QPixmap(details["icon_path"])
+                icon_pixmap = icon_pixmap.scaled(QSize(20, 20))
+                label.setPixmap(icon_pixmap)
+                widget_list.append(label)
+            else:
+                empty_label = QLabel(self)
+                empty_label.setFixedSize(QSize(20, 20))
+                widget_list.append(empty_label)
+
+        layout = QHBoxLayout()
+        
+        for widget in widget_list:
+            layout.addWidget(widget)
+        spacer = QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        layout.addItem(spacer)
+        layout.addWidget(self.wad_label)
+        self.setLayout(layout)
+          
+        
 class DividerWidgetItem(QListWidgetItem):
     def __init__(self):
         super().__init__()

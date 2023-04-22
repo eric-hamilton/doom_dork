@@ -1,5 +1,5 @@
 import winreg
-import re, os, glob, math, hashlib
+import re, os, glob, math, hashlib, json
 
 
 def strip_name_element(name_element):
@@ -62,16 +62,13 @@ def convert_bytes(size_bytes):
     return "%s %s" % (s, size_name[i])       
 
 def compute_checksum(file_path):
-    # Open the file in binary mode
-    with open(file_path, "rb") as f:
-        # Create an MD5 hash object
-        md5 = hashlib.md5()
 
-        # Read the file in chunks and update the hash object
+    with open(file_path, "rb") as f:
+        md5 = hashlib.md5()
+        
         for chunk in iter(lambda: f.read(4096), b""):
             md5.update(chunk)
-
-    # Return the hex digest of the hash
+            
     return md5.hexdigest()
     
 def get_wad_header(file_path):
@@ -79,9 +76,3 @@ def get_wad_header(file_path):
         wad_header = f.read(4).decode("utf-8")
         return wad_header
     
-known_wads = {
-    "Doom":{
-        "size_bytes":12408292,
-        
-    }
-}

@@ -3,11 +3,13 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QLabel, QGridLayout,
                         QSplitter, QSizePolicy, QPushButton, QAction, QDialog,
                         QStyleFactory, QHBoxLayout, QScrollBar, QComboBox,
                         QDialogButtonBox, QStackedWidget, QCheckBox, QFileDialog,
-                        QLineEdit, QMessageBox, QMenu)
+                        QLineEdit, QMessageBox, QMenu, QAbstractItemView)
+                        
 from PyQt5.QtCore import Qt, QSize, QUrl, QRect
 from PyQt5.QtGui import QPixmap, QIcon, QDesktopServices, QPalette, QColor
 
-from dork.ui.custom import DividerWidgetItem, AddItemWidget, NoValidIWadMessage, FileBrowseEdit
+from dork.ui.widgets import (DividerWidgetItem, AddItemWidget, NoValidIWadMessage,
+                        FileBrowseEdit, WadListItem)
 from dork.config import warnings
 import os
 import qdarkstyle
@@ -210,6 +212,13 @@ class EngineWindow(QDialog):
             self.local_engine_listbox.addItem(engine_item) 
         
 
+class DownloadWadWindow(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Download WADs")
+
+        self.setGeometry(parent.geometry().x() + 100, parent.geometry().y() + 100, 400, 400)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
 class NewEngineWindow(QDialog):  
     def __init__(self, engine_path, parent=None):
@@ -250,7 +259,50 @@ class NewEngineWindow(QDialog):
         layout.addWidget(save_button, 4, 1)
         
         self.setLayout(layout)
-    
+        
+class EditWadWindow(QDialog):
+    def __init__(self, wad_id, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit WAD")
+        self.setGeometry(parent.geometry().x() + 50, parent.geometry().y() + 50, 400, 400)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        
+        wad = self.parent().ui.app.dork.get_wad(wad_id)
+        edit_wad_label = QLabel(f'Add WAD Details for {wad.title}')
+        
+        title_label = QLabel('Title')
+        self.title_input = QLineEdit()
+        self.title_input.setText(wad.title)
+        
+        description_label = QLabel('Description')
+        self.description_input = QLineEdit()
+        self.description_input.setText(wad.description)
+        
+        author_label = QLabel('Author')
+        self.author_input = QLineEdit()
+        self.author_input.setText(wad.author)
+        
+        cancel_button = QPushButton('Cancel')
+        cancel_button.clicked.connect(self.close)
+        save_button = QPushButton('Save')
+        save_button.clicked.connect(lambda: parent.update_wad(self, wad_id))
+        
+        
+        layout = QGridLayout()
+        
+        layout.addWidget(edit_wad_label, 0, 0, 1, 2)
+        layout.addWidget(title_label, 1, 0)
+        layout.addWidget(self.title_input, 1, 1)
+        layout.addWidget(description_label, 2, 0)
+        layout.addWidget(self.description_input, 2, 1)
+        layout.addWidget(author_label, 3, 0)
+        layout.addWidget(self.author_input, 3, 1)
+        layout.addWidget(cancel_button, 4, 0)
+        layout.addWidget(save_button, 4, 1)
+        
+        self.setLayout(layout)
+        
+        
 class EditEngineWindow(QDialog):  
     def __init__(self, engine_id, parent=None):
         super().__init__(parent)
@@ -301,7 +353,10 @@ class WadWindow(QDialog):
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
         
         browse_button= QPushButton("Browse Online Wads")
+
+        browse_button.clicked.connect(parent.open_download_wad_window)
         
+
         installed_wad_label = QLabel('Installed Wads')
         installed_wad_listbox = QListWidget()
         local_wad_label = QLabel('Local Wads')
@@ -338,8 +393,12 @@ class WadWindow(QDialog):
 class MainWindow(QMainWindow):
     def __init__(self, ui):
         self.ui = ui
-        self.last_local_folder=ui.app.config.parser.get("DATA", "last_directory")
-        self.wad_index = {}
+        self.parser = ui.app.config.parser
+        self.last_local_folder=self.parser.get("DATA", "last_directory")
+        self.wad_index = {}                      # {int>row_index : int>wad_id}
+        self.engine_index = {}                   # {int>row_index : int>engine_id}
+        self.iwad_index = {}                     # {int>combobox_index : int>iwad_name}
+        
         self.engine_window = None
         self.wad_window = None
         super().__init__()
@@ -353,7 +412,7 @@ class MainWindow(QMainWindow):
         
         self.wad_label = QLabel("Wads", self)
         self.wad_listbox = QListWidget(self)
-        self.wad_listbox.setFixedSize(200, 300)
+        self.wad_listbox.setFixedSize(300, 300)
         self.wad_scrollbar = QScrollBar(Qt.Vertical, self.wad_listbox)
         self.wad_listbox.setVerticalScrollBar(self.wad_scrollbar)
         
@@ -365,8 +424,13 @@ class MainWindow(QMainWindow):
         
         
         self.wad_context_menu = QMenu()
+        
+        view_wad_info_action = QAction("View WAD Info", self)
+        view_wad_info_action.triggered.connect(self.open_edit_wad_menu)
+        self.wad_context_menu.addAction(view_wad_info_action)
+        
         edit_wad_action = QAction("Edit WAD", self)
-        edit_wad_action.triggered.connect(self.open_edit_engine_window)
+        edit_wad_action.triggered.connect(self.open_edit_wad_menu)
         self.wad_context_menu.addAction(edit_wad_action)
         
         open_wad_folder_action = QAction("Open Folder", self)
@@ -375,6 +439,8 @@ class MainWindow(QMainWindow):
         self.wad_context_menu.addAction(open_wad_folder_action)
         self.wad_listbox.setContextMenuPolicy(Qt.CustomContextMenu)
         self.wad_listbox.customContextMenuRequested.connect(self.show_wad_context_menu)
+        self.wad_listbox.setEditTriggers(QAbstractItemView.DoubleClicked)
+        self.wad_listbox.itemDoubleClicked.connect(self.open_edit_wad_menu)
         
         
         self.engine_label = QLabel("Engines", self)
@@ -382,6 +448,9 @@ class MainWindow(QMainWindow):
         self.engine_listbox.setFixedSize(200, 300)
         self.engine_scrollbar = QScrollBar(Qt.Vertical, self.engine_listbox)
         self.engine_listbox.setVerticalScrollBar(self.engine_scrollbar)
+        self.engine_listbox.setEditTriggers(QAbstractItemView.DoubleClicked)
+        self.engine_listbox.itemDoubleClicked.connect(self.open_edit_engine_window)
+        
         
         add_engine_item = AddItemWidget("Add Engines", self.engine_listbox)
         add_item = QListWidgetItem(self.engine_listbox)
@@ -402,9 +471,11 @@ class MainWindow(QMainWindow):
         self.engine_listbox.customContextMenuRequested.connect(self.show_engine_context_menu)
         
         self.iwad_label = QLabel("IWAD", self)
-        self.iwad_var = QComboBox(self)
+        self.iwad_combobox = QComboBox(self)
         iwads = self.ui.app.dork.get_iwads()
-        self.iwad_var.addItems(iwads)
+        for x in range(len(iwads)):
+            self.iwad_index[x]=iwads[x]
+        self.iwad_combobox.addItems(iwads)
 
 
         self.run_button = QPushButton("Launch", self)
@@ -422,7 +493,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.engine_label, 0, 2)
         
         layout.addWidget(self.iwad_label, 3, 0)
-        layout.addWidget(self.iwad_var, 3, 1)
+        layout.addWidget(self.iwad_combobox, 3, 1)
         layout.addWidget(self.run_button, 3, 2)
 
         # Add empty columns to the left and right of the listbox and scrollbar
@@ -438,6 +509,7 @@ class MainWindow(QMainWindow):
         self.wads = {}
         self.load_wads()
         self.load_engines()
+        self.set_defaults()
 
         # Configure the grid to expand the file listbox vertically and horizontally
         layout.setRowStretch(0, 1)
@@ -450,13 +522,29 @@ class MainWindow(QMainWindow):
     def launch_wad(self):
         selected_engine_index = self.engine_listbox.currentRow()
         selected_wad_index = self.wad_listbox.currentRow()
-        selected_iwad = self.iwad_var.currentText()
+        selected_iwad = self.iwad_combobox.currentText()
         if selected_engine_index >=0:
             if selected_wad_index >=0:
                 engine_id = self.engine_index[selected_engine_index]
                 wad_id = self.wad_index[selected_wad_index]
                 self.ui.app.dork.run_selected(engine_id, wad_id, selected_iwad)
         
+    def set_defaults(self):
+        last_wad = self.parser.getint("DATA", "last_wad")
+        last_engine = self.parser.getint("DATA", "last_engine")
+        last_iwad = self.parser.get("DATA", "last_iwad")
+        
+        if last_wad:
+            row = list(self.wad_index.keys())[list(self.wad_index.values()).index(last_wad)]
+            self.wad_listbox.setCurrentRow(row)
+        
+        if last_engine:
+            row = list(self.engine_index.keys())[list(self.engine_index.values()).index(last_engine)]
+            self.engine_listbox.setCurrentRow(row)
+        
+        if last_iwad:
+            index = list(self.iwad_index.keys())[list(self.iwad_index.values()).index(last_iwad)]
+            self.iwad_combobox.setCurrentIndex(index)
         
     def load_wads(self):
         self.wad_listbox.clear()
@@ -466,8 +554,11 @@ class MainWindow(QMainWindow):
         for x in range(len(wad_list)):
             wad = wad_list[x]
             self.wad_index[x]=wad.id
-            wad_item = QListWidgetItem(wad.title)
-            self.wad_listbox.addItem(wad_item) 
+            wad_item = WadListItem(wad, self.ui.app.config)
+            add_item = QListWidgetItem()
+            add_item.setSizeHint(wad_item.sizeHint())
+            self.wad_listbox.addItem(add_item)
+            self.wad_listbox.setItemWidget(add_item, wad_item)
             
         divider_item = DividerWidgetItem()
         self.wad_listbox.addItem(divider_item)
@@ -488,6 +579,7 @@ class MainWindow(QMainWindow):
             self.engine_index[x]= engine.id
             engine_item = QListWidgetItem(engine.title)
             self.engine_listbox.addItem(engine_item) 
+            
             
         divider_item = DividerWidgetItem()
         self.engine_listbox.addItem(divider_item)
@@ -520,7 +612,7 @@ class MainWindow(QMainWindow):
         if file_path:
             folder_path = os.path.dirname(file_path)
             self.last_local_folder = folder_path
-            self.ui.app.config.parser.set("DATA", "last_directory", folder_path)
+            self.parser.set("DATA", "last_directory", folder_path)
             folder_name = os.path.basename(os.path.normpath(folder_path))
             
             msg_box = QMessageBox()
@@ -574,6 +666,17 @@ class MainWindow(QMainWindow):
         edit_engine_window = EditEngineWindow(engine_id, self)
         edit_engine_window.exec_()
     
+    def open_download_wad_window(self):
+
+        download_wad_window = DownloadWadWindow(self)
+        download_wad_window.exec_()
+        
+    def open_edit_wad_menu(self):
+        selected_wad_index = self.wad_listbox.currentRow()
+        wad_id = self.wad_index[selected_wad_index]
+        edit_wad_window = EditWadWindow(wad_id, self)
+        edit_wad_window.exec_()
+    
     def open_wad_folder(self):
         selected_wad_index = self.wad_listbox.currentRow()      
         wad_id = self.wad_index[selected_wad_index]
@@ -597,6 +700,7 @@ class MainWindow(QMainWindow):
 
             folder_path = os.path.dirname(file_path)
             self.last_local_folder = folder_path
+            self.parser.set("DATA", "last_directory", folder_path)
             self.open_new_engine_window(file_path)
 
     def save_engine(self, new_engine_window):
@@ -614,6 +718,9 @@ class MainWindow(QMainWindow):
         }
         self.ui.app.dork.add_local_engine(details)
     
+    def update_wad(self, edit_wad_window, wad_id):
+        pass
+        
     def update_engine(self, edit_engine_window, engine_id):
         title = edit_engine_window.title_input.text()
         description = edit_engine_window.description_input.text()

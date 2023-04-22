@@ -75,8 +75,9 @@ def create_default_config_file(root_dir):
     config_file = os.path.join(bin_dir, "config.ini")
     parser.config_file = config_file
     
-    # Define Defaults
+    # Defaults
     
+    # [CONFIG]
     default_config = {
         'base_directory': root_dir,
         'engine_directory': engine_dir,
@@ -85,6 +86,7 @@ def create_default_config_file(root_dir):
     }
     default_config = {k: str(v) for k, v in default_config.items()}
     
+    # [IWADS]
     default_iwads = {
         "doom":"",
         "doom2":"",
@@ -95,9 +97,11 @@ def create_default_config_file(root_dir):
     }
     default_iwads = {k: str(v) for k, v in default_iwads.items()}
     
+    # [DATA]
     default_data = {
         "last_wad":"",
         "last_engine":"",
+        "last_iwad":"",
         "last_directory":".",
     }
     default_data = {k: str(v) for k, v in default_data.items()}

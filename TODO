@@ -1,0 +1,31 @@
+- genericize the doomworld scraper
+
+- set up the download wad window to use doomworld scraper
+
+- pull wads to wad folder
+
+- make more directories for themes and non-level stuff
+
+- add sorting of wads and engines
+
+- show warning when iwads are found in local engine directory
+
+- verify checksums of iwads and add them as "is_iwad" WAD
+
+- add icons to wad_listbox to denote local / favorite / rating / etc.
+
+- preference to copy iwads to bin directory
+
+- add "none" option to the iwad_combobox
+
+- preference to suppress messages and warnings
+
+- create folders and groups for wads
+
+- make a nicer launch view to see <selected_engine> <selected_iwad> <selected_pwad> all in a row
+
+- scrape ftp server for md5 hashes and append to web repo
+
+- check engine for update (exclude local?)
+
+- add playtime to engines and WADS database
