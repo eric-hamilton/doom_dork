@@ -1,5 +1,7 @@
 from bs4 import BeautifulSoup
 import requests
+import re
+import dork.web.utils as web_utils
 
 class DoomWorldWADListing:
     def __init__(self, listing_element):
@@ -17,13 +19,7 @@ class DoomWorldWADListing:
         
     @staticmethod
     def strip_name_element(name_element):
-        star_images = {'qstarmidright.gif': 0.25, 
-                       'emptyhalfstar.gif': 0.0, 
-                       'qstarfarleft.gif': 0.25, 
-                       'star.gif': 1, 
-                       'halfstar.gif': 0.5, 
-                       'emptyqstarfarright.gif': 0.0, 
-                       'emptyqstarmidleft.gif': 0.0}
+        
         name = name_element.find("a").text.strip()
         link = name_element.find('a').get("href")
         path_list = link.split("/")
@@ -34,14 +30,55 @@ class DoomWorldWADListing:
             is_level = False
             iwad=None
         
-        star_rating = 0
-        for img in name_element.find_all('img', src=True):
-            if img['src'].split('/')[-1] in star_images:
-                star_rating += star_images[img['src'].split('/')[-1]]
+        star_rating = web_utils.get_rating_from_stars(name_element.find_all('img', src=True))
         return name, star_rating, link, is_level, iwad
         
     def __repr__(self):
         return f'"{self.title}" by {self.author}'
+
+
+class DoomWorldWADDetail:
+    def __init__(self, soup_object):
+        self.ftp_links = {}
+        self.http_links = {}
+        dl_table = soup_object.find("table", class_="download")
+        dl_links = dl_table.find_all('a')
+        self.base_iwad = None
+        
+        for link in dl_links:
+            link_location = link.text.lower().split()[0]
+            if not self.base_iwad:
+                match = re.search(r'/levels/(\w+)/', link_location)
+                if match:
+                    self.base_iwad = match.group(1)
+            link_url = link.get("href")
+            if "ftp" in link.text.lower():
+                self.ftp_links[link_location] = link_url
+            else:
+                if ".zip" in link_url:
+                    self.http_links[link_location] = link_url
+        
+        info_table = soup_object.find("table", class_="filelist")
+        file_dict = {}
+        for row in info_table.find_all("tr"):
+            cells = row.find_all("td")
+            cell_title = cells[0].text.lower().strip(":")
+            cell_value = cells[1].text.lstrip()
+            if cell_title != "rating":
+                # format doomworld's titles
+                if cell_title == "build time":
+                    cell_title = "build_time"
+                elif cell_title == "editor(s) used":
+                    cell_title = "editors_used"
+                  
+                file_dict[cell_title] = cell_value
+            else:
+                image_list = cells[1].find_all('img', src=True)
+                file_dict["rating"] = web_utils.get_rating_from_stars(image_list)
+        for k, v in file_dict.items():
+            setattr(self, k, v)
+    def __repr__(self):
+        return f"{self.title} by {self.author}, size: {self.size}, rating: {self.rating}"
         
 def get_doomworld_listings_date(level_count=25):
     listing_objects = []
@@ -62,7 +99,8 @@ def get_doomworld_listings_date(level_count=25):
         page_number+=1
     return listing_objects
 
-    
+
+
 def get_doomworld_listings(number=25, topbottom="top", votes=50):
     form_url = "https://www.doomworld.com/idgames//index.php?top"
 

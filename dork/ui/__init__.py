@@ -3,11 +3,13 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QLabel, QGridLayout,
                         QSplitter, QSizePolicy, QPushButton, QAction, QDialog,
                         QStyleFactory, QHBoxLayout, QScrollBar, QComboBox,
                         QDialogButtonBox, QStackedWidget, QCheckBox, QFileDialog,
-                        QLineEdit, QMessageBox, QMenu, QAbstractItemView)
+                        QLineEdit, QMessageBox, QMenu, QAbstractItemView,
+                        QRadioButton)
                         
 from PyQt5.QtCore import Qt, QSize, QUrl, QRect
 from PyQt5.QtGui import QPixmap, QIcon, QDesktopServices, QPalette, QColor
 
+import dork.web.doomworld as doomworld_scripts
 from dork.ui.widgets import (DividerWidgetItem, AddItemWidget, NoValidIWadMessage,
                         FileBrowseEdit, WadListItem)
 from dork.config import warnings
@@ -216,10 +218,189 @@ class DownloadWadWindow(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Download WADs")
-
+        self.dork = parent.ui.app.dork
+        # search [filename, author, email, title, description, credits, editors, whole textfile]
+        # sort by [date, filename, title, author, size, rating]
+        # descending, ascending
+       
+        self.wad_listing_index = {}
         self.setGeometry(parent.geometry().x() + 100, parent.geometry().y() + 100, 400, 400)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        title_label = QLabel("Search Doomworld WADs")
+        query_label = QLabel("Search Query:")
+        self.search_edit = QLineEdit()
+        self.search_edit.returnPressed.connect(self.search)
+        
+        search_label = QLabel("Search:")
+        self.search_combo = QComboBox()
+        self.search_combo.addItem("Filename")
+        self.search_combo.addItem("Author")
+        self.search_combo.addItem("E-Mail")
+        self.search_combo.addItem("Title")
+        self.search_combo.addItem("Description")
+        self.search_combo.addItem("Credits")
+        self.search_combo.addItem("Editors")
+        self.search_combo.addItem("Whole Textfile")
+        #self.search_combo.currentIndexChanged.connect(self.search)
+        
+        
 
+        sort_label = QLabel("Sort by:")
+        self.sort_combo = QComboBox()
+        self.sort_combo.addItem("Date")
+        self.sort_combo.addItem("Filename")
+        self.sort_combo.addItem("Title")
+        self.sort_combo.addItem("Author")
+        self.sort_combo.addItem("Size")
+        self.sort_combo.addItem("Rating")
+        #self.sort_combo.currentIndexChanged.connect(self.search)
+        
+        self.asc_desc_combo = QComboBox()
+        self.asc_desc_combo.addItem("Ascending")
+        self.asc_desc_combo.addItem("Descending")
+        
+        
+        count_label = QLabel("Count")
+        self.count_combo = QComboBox()
+        self.count_combo.addItem("5")
+        self.count_combo.addItem("10")
+        self.count_combo.addItem("25")
+        self.count_combo.addItem("50")
+        self.count_combo.addItem("100")
+        self.count_combo.addItem("200")
+        
+        check_layout = QHBoxLayout()
+        options = ["Doom", "Doom2", "Hexen", "Heretic", "Strife"]
+        for option in options:
+            checkbox = QCheckBox(option)
+            check_layout.addWidget(checkbox)
+
+
+        search_button = QPushButton("Search")
+        search_button.clicked.connect(self.search)
+
+        self.results_listbox = QListWidget()
+        self.result_context_menu = QMenu()
+        
+        view_wad_info_action = QAction("View WAD Info", self)
+        view_wad_info_action.triggered.connect(self.open_view_wad_window)
+        self.result_context_menu.addAction(view_wad_info_action)
+        
+        download_wad_action = QAction("Download WAD", self)
+        download_wad_action.triggered.connect(self.handle_download_wad)
+        self.result_context_menu.addAction(download_wad_action)
+        
+        open_doomworld_page_action = QAction("View on Doomworld", self)
+        open_doomworld_page_action.triggered.connect(self.open_doomworld_page)
+        self.result_context_menu.addAction(open_doomworld_page_action)
+        
+        self.results_listbox.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.results_listbox.customContextMenuRequested.connect(self.show_result_context_menu)
+        self.results_listbox.setEditTriggers(QAbstractItemView.DoubleClicked)
+        self.results_listbox.itemDoubleClicked.connect(self.open_view_wad_window)
+
+
+        search_layout = QHBoxLayout()
+        search_layout.addWidget(query_label)
+        search_layout.addWidget(self.search_edit)
+        search_layout.addWidget(search_button)
+
+        filter_layout = QHBoxLayout()
+        
+        filter_layout.addWidget(search_label)
+        filter_layout.addWidget(self.search_combo)
+        filter_layout.addWidget(sort_label)
+        filter_layout.addWidget(self.sort_combo)
+        filter_layout.addWidget(self.asc_desc_combo)
+        filter_layout.addWidget(count_label)
+        filter_layout.addWidget(self.count_combo)
+        
+        
+        separator_layout = QHBoxLayout()
+        left_separator = QFrame(self)
+        left_separator.setFrameShape(QFrame.HLine)
+        left_separator.setFrameShadow(QFrame.Sunken)
+        or_label = QLabel("or")
+        or_label.setContentsMargins(0, 0, 0, 0)
+        right_separator = QFrame(self)
+        right_separator.setFrameShape(QFrame.HLine)
+        right_separator.setFrameShadow(QFrame.Sunken)
+        separator_layout.addWidget(left_separator)
+        separator_layout.addWidget(or_label, alignment=Qt.AlignCenter)
+        separator_layout.addWidget(right_separator)
+        
+        
+        fun_layout = QHBoxLayout()
+        
+        newest_wads_button = QPushButton("Get Newest WADs")
+        newest_wads_button.clicked.connect(lambda: self.search("new"))
+        random_wads_button = QPushButton("Get Random WADs")
+        random_wads_button.clicked.connect(lambda: self.search("random"))
+        
+        fun_layout.addWidget(newest_wads_button)
+        fun_layout.addWidget(random_wads_button)
+        
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(title_label)
+        main_layout.addLayout(search_layout)
+        main_layout.addLayout(filter_layout)
+        main_layout.addLayout(check_layout)
+        main_layout.addLayout(separator_layout)
+        main_layout.addLayout(fun_layout)
+        main_layout.addWidget(self.results_listbox)
+
+        self.setLayout(main_layout)
+        
+    def search(self, query_string=None):
+        self.results_listbox.clear()
+        if query_string:
+            if query_string == "random":
+                random_wads = doomworld_scripts.get_random_wads(["doom"])
+                print(len(random_wads))
+                for x in range(len(random_wads)):
+                    wad = random_wads[x]
+                    wad_info = f"{wad.title} by {wad.author} - {wad.size}"
+                    wad_item = QListWidgetItem(wad_info)
+                    self.results_listbox.addItem(wad_item)
+                    self.wad_listing_index[x] = wad
+                return
+            elif query_string == "new":
+                return
+        
+        query = self.search_edit.text()
+        search_option = self.search_combo.currentText()
+        sort_option = self.sort_combo.currentText()
+        asc_desc = self.asc_desc_combo.currentText()
+
+        # TODO: Implement search function based on query and filter option
+
+        self.results_listbox.clear()
+    
+    def show_result_context_menu(self, pos):
+        selected_wad_index = self.results_listbox.currentRow()
+        if selected_wad_index >=0:
+            global_pos = self.results_listbox.mapToGlobal(pos)
+            self.result_context_menu.exec(global_pos)
+            
+    def handle_download_wad(self):
+        selected_wad_index = self.results_listbox.currentRow()
+        if selected_wad_index >=0:
+            wad_listing = self.wad_listing_index[selected_wad_index]
+            self.dork.download_wad_from_url(wad_listing.link)
+        
+    def open_doomworld_page(self):
+        selected_wad_index = self.results_listbox.currentRow()
+        if selected_wad_index >=0:
+            wad_listing = self.wad_listing_index[selected_wad_index]
+            QDesktopServices.openUrl(QUrl(wad_listing.link))
+    
+    def open_view_wad_window(self):
+        selected_wad_index = self.results_listbox.currentRow()
+        if selected_wad_index >=0:
+            wad_listing = self.wad_listing_index[selected_wad_index]
+            
+            
+        
 class NewEngineWindow(QDialog):  
     def __init__(self, engine_path, parent=None):
         super().__init__(parent)

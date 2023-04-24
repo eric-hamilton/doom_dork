@@ -1,5 +1,6 @@
 import winreg
 import re, os, glob, math, hashlib, json
+import zipfile
 
 
 def strip_name_element(name_element):
@@ -76,3 +77,20 @@ def get_wad_header(file_path):
         wad_header = f.read(4).decode("utf-8")
         return wad_header
     
+def unzip_file(file, output_directory=None, delete_zip=False):
+    if output_directory == None:
+        output_directory = os.path.join(os.path.dirname(file), os.path.splitext(file)[0])
+    os.makedirs(output_directory, exist_ok=True)
+    
+    with zipfile.ZipFile(file, "r") as zip_ref:
+        try:
+            zip_ref.extractall(output_directory)
+        except Exception as e:
+            return
+    if delete_zip:
+        os.remove(file)
+        
+def get_safe_folder_name(original_name):
+    invalid_chars = '<>:\"/\\|?*'
+    safe_name = original_name.translate(str.maketrans(invalid_chars, '_'*len(invalid_chars)))
+    return safe_name        

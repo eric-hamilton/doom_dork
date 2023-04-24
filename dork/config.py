@@ -103,6 +103,13 @@ def create_default_config_file(root_dir):
         "last_engine":"",
         "last_iwad":"",
         "last_directory":".",
+        "search_doom":True,
+        "search_doom2":True,
+        "search_hexen":True,
+        "search_heretic":True,
+        "search_strife":True,
+        "search_levels":True,
+        "search_themes":True
     }
     default_data = {k: str(v) for k, v in default_data.items()}
 

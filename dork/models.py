@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, Date
 from sqlalchemy.ext.declarative import declarative_base
-from dork.utils import convert_bytes
+import dork.utils as dork_utils
 import os
 
 Base = declarative_base()
@@ -41,6 +41,8 @@ class WAD(Base):
     editors_used = Column(String)
     bugs = Column(String)
     rating = Column(String)
+    md5 = Column(String)
+    base_iwad = Column(String)
     rating_count = Column(String)
     my_rating = Column(Integer)
     favorite = Column(Boolean, default=False)
@@ -54,9 +56,28 @@ class WAD(Base):
         self.filename = os.path.basename(file_path)
         self.title = self.filename
         self.size_bytes = os.path.getsize(file_path)
-        self.size = convert_bytes(self.size_bytes)
+        self.size = dork_utils.convert_bytes(self.size_bytes)
         self.local = True
         
+    def init_from_doomworld_detail(self, detail):
+        self.title = detail.title
+        self.description = detail.description
+        self.author = detail.author
+        self.size = detail.size
+        self.date = detail.date
+        self.credits = detail.credits
+        self.base = detail.base
+        self.build_time = detail.build_time
+        self.editors_used = detail.editors_used
+        self.bugs = detail.bugs
+        self.rating = detail.rating
+        self.base_iwad = detail.base_iwad
+        
+    def add_downloaded_details(self, file_path):
+        self.file_path = file_path
+        self.filename = os.path.basename(file_path)
+        self.size_bytes = os.path.getsize(file_path)
+        self.md5 = dork_utils.compute_checksum(file_path)
         
 
 class WADFolder(Base):

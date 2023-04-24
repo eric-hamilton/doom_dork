@@ -2,7 +2,7 @@
 
 - set up the download wad window to use doomworld scraper
 
-- pull wads to wad folder
+- pull wads to wad folder [DONE]
 
 - make more directories for themes and non-level stuff
 
@@ -12,7 +12,7 @@
 
 - verify checksums of iwads and add them as "is_iwad" WAD
 
-- add icons to wad_listbox to denote local / favorite / rating / etc.
+- add icons to wad_listbox to denote local / favorite / rating / etc. [sorta done]
 
 - preference to copy iwads to bin directory
 

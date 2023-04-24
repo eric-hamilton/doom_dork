@@ -7,8 +7,9 @@ import concurrent.futures
 import time
 import json
 
-import dork.web as web_utils
+from dork.web import doomworld, DoomWorldWADDetail
 import dork.utils as dork_utils
+import dork.web.utils as web_utils
 from dork.models import Engine, WAD, WADFolder
 
 
@@ -71,7 +72,26 @@ class DoomDork:
             return iwad_path
         else:
             return None
-            
+    
+    def download_wad_from_url(self, wad_url):
+  
+        soup = web_utils.get_soup_or_fail(wad_url)
+        detail = DoomWorldWADDetail(soup)
+        new_wad = WAD()
+        new_wad.init_from_doomworld_detail(detail)
+        wad_dir = self.app.config.parser.get("CONFIG", "wad_directory")
+        temp_filename = ".tmp.zip"
+        wad_link = next(iter(detail.ftp_links.values()))
+        temp_path = os.path.join(wad_dir, temp_filename)
+        web_utils.get_ftp_file(wad_link, temp_filename)
+        folder_safe_name = dork_utils.get_safe_folder_name(detail.title)
+        output_folder = os.path.join(wad_dir, folder_safe_name)
+        dork_utils.unzip_file(temp_filename, output_folder)
+        wad_list = self.get_wads_in_folder(output_folder)
+        new_wad.add_downloaded_details(wad_list[0])
+        self.app.db.add(new_wad)
+        self.app.db.commit()
+
     def add_local_wad(self, wad_path):
         new_wad = WAD()
         new_wad.init_from_local_filepath(wad_path)
@@ -92,7 +112,7 @@ class DoomDork:
     def get_wad(self, wad_id):
         wad = self.app.db.query(WAD).get(wad_id)
         return wad
-        
+    
     def get_steam_wads(self):
         steam_dir = dork_utils.get_steam_directory()
         found_wads = dork_utils.find_wads_in_directory(steam_dir)
