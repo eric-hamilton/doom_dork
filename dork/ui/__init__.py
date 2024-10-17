@@ -37,7 +37,7 @@ class UI:
                             "Created By Eric Hamilton<br>"
                             "Github https://github.com/eric-hamilton/doom_dork<br><br>"
                             "Version 0.1<br><br>"
-                            "Copyright (c) 2023")
+                            "Copyright (c) 2024")
         about_label.setOpenExternalLinks(True)
         about_label.linkActivated.connect(self.open_link)
 
