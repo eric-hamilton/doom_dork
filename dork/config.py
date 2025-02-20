@@ -143,8 +143,8 @@ def create_default_config_file(root_dir):
         
     
     for dir in [engine_dir, wad_dir]:
-        if not os.path.exists(d):
-            os.makedirs(d)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
 
     parser["CONFIG"] = default_config
     parser["IWADS"] = default_iwads

@@ -711,19 +711,19 @@ class MainWindow(QMainWindow):
                 self.ui.app.dork.run_selected(engine_id, wad_id, selected_iwad)
         
     def set_defaults(self):
-        last_wad = self.parser.getint("DATA", "last_wad")
-        last_engine = self.parser.getint("DATA", "last_engine")
+        last_wad = self.parser.get("DATA", "last_wad")
+        last_engine = self.parser.get("DATA", "last_engine")
         last_iwad = self.parser.get("DATA", "last_iwad")
         
-        if last_wad:
+        if last_wad != "":
             row = list(self.wad_index.keys())[list(self.wad_index.values()).index(last_wad)]
             self.wad_listbox.setCurrentRow(row)
         
-        if last_engine:
+        if last_engine != "":
             row = list(self.engine_index.keys())[list(self.engine_index.values()).index(last_engine)]
             self.engine_listbox.setCurrentRow(row)
         
-        if last_iwad:
+        if last_iwad != "":
             index = list(self.iwad_index.keys())[list(self.iwad_index.values()).index(last_iwad)]
             self.iwad_combobox.setCurrentIndex(index)
         
