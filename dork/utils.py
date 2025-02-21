@@ -4,7 +4,6 @@ import zipfile
 
 
 def strip_name_element(name_element):
-    
     star_images = {'qstarmidright.gif': 0.25, 
                'emptyhalfstar.gif': 0.0, 
                'qstarfarleft.gif': 0.25, 
@@ -29,7 +28,8 @@ def get_registry_command(key_path):
         return command
     except WindowsError:
         return False
-        
+
+
 def find_wads_in_directory(directory):
     wad_files = []
     for root, dirs, files in os.walk(directory):
@@ -39,7 +39,8 @@ def find_wads_in_directory(directory):
                 size_bytes = os.path.getsize(full_path)
                 wad_files.append((full_path, size_bytes, file))
     return wad_files
-    
+
+
 def get_steam_directory():
     key_path = r"steam\\Shell\\Open\\Command"
     command = get_registry_command(key_path)
@@ -52,7 +53,6 @@ def get_steam_directory():
         return steam_dir
     
     
-    
 def convert_bytes(size_bytes):
     if size_bytes == 0:
         return "0B"
@@ -61,6 +61,7 @@ def convert_bytes(size_bytes):
     p = math.pow(1024, i)
     s = round(size_bytes / p, 2)
     return "%s %s" % (s, size_name[i])       
+
 
 def compute_checksum(file_path):
 
@@ -71,12 +72,14 @@ def compute_checksum(file_path):
             md5.update(chunk)
             
     return md5.hexdigest()
-    
+
+
 def get_wad_header(file_path):
     with open(file_path, "rb") as f: 
         wad_header = f.read(4).decode("utf-8")
         return wad_header
-    
+
+
 def unzip_file(file, output_directory=None, delete_zip=False):
     if output_directory == None:
         output_directory = os.path.join(os.path.dirname(file), os.path.splitext(file)[0])
@@ -89,7 +92,8 @@ def unzip_file(file, output_directory=None, delete_zip=False):
             return
     if delete_zip:
         os.remove(file)
-        
+
+
 def get_safe_folder_name(original_name):
     invalid_chars = '<>:\"/\\|?*'
     safe_name = original_name.translate(str.maketrans(invalid_chars, '_'*len(invalid_chars)))

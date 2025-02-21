@@ -1,9 +1,8 @@
 from PyQt5.QtWidgets import (QLabel, QListWidgetItem, QWidget,  QPushButton,
                             QHBoxLayout, QMessageBox, QLineEdit, QFileDialog,
-                            QSpacerItem, QSizePolicy)
-from PyQt5.QtSvg import QSvgRenderer                            
+                            QSpacerItem, QSizePolicy)                          
 from PyQt5.QtCore import Qt, QSize, pyqtSignal
-from PyQt5.QtGui import QColor, QPalette, QPixmap, QIcon, QFont
+from PyQt5.QtGui import QColor, QPixmap, QFont
 import qdarkstyle
 
 class AddItemWidget(QWidget):
