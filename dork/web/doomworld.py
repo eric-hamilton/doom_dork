@@ -44,7 +44,3 @@ def get_page_listings(doomworld_url):
     soup = BeautifulSoup(response.text, "html.parser")
     listings = soup.find_all("table", class_="wadlisting")
     return listings
-    
-    
-    
-    

@@ -17,8 +17,6 @@ class IWadWindow(QDialog):
         iwad_label.setWordWrap(True)
         iwad_label.setFixedHeight(60)
 
-        
-        
         doom_label = QLabel("DOOM.WAD")
         doom_path = parent.ui.app.dork.get_verified_iwad_path("doom")
         doom_path_edit = FileBrowseEdit(self.parser, doom_path, self)
@@ -72,9 +70,9 @@ class IWadWindow(QDialog):
         layout.addWidget(strife_voices_path_edit, 7, 1)
         layout.addWidget(finish_button, 8, 0, 2, 2, alignment=Qt.AlignCenter)
 
-
         self.setLayout(layout)
-    
+
+
     def iwad_path_selected(self, file_path, iwad):
         self.parser.set("IWADS",iwad,file_path)
         folder = os.path.dirname(file_path)
